@@ -5,9 +5,7 @@
   "main": "scripts/sync.js",
   "scripts": {
     "sync": "node scripts/sync.js",
-    "dashboard": "node scripts/dashboard.js",
-    "dedupe": "node scripts/dedupe.js",
-    "postinstall": "npx playwright install chromium"
+    "dedupe": "node scripts/dedupe.js"
   },
   "keywords": [
     "ai",
