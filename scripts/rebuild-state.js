@@ -9,7 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const { fetchAllNotes, saveSyncState } = require('./api');
-const { safeName } = require('./format');
+const { safeName, classifyNote } = require('./format');
 
 const OUTPUT_DIR = process.env.OUTPUT_DIR || path.join(process.cwd(), 'notes');
 const SINCE_DATE = process.env.SINCE_DATE || '2026-01-01';
@@ -18,7 +18,7 @@ async function main() {
     console.log('🔄 Rebuilding sync state from API...\n');
 
     const allNotes = await fetchAllNotes();
-    const getDir = path.join(OUTPUT_DIR, 'get');
+    const baseDir = path.join(OUTPUT_DIR, 'Get笔记');
 
     let onDisk = 0;
     let missing = 0;
@@ -35,11 +35,11 @@ async function main() {
         }
 
         // 2026+: check if file exists on disk
-        const rawTime = (note.created_at || '').split(' ')[1] || '00:00:00';
-        const timeStr = rawTime.substring(0, 8).replace(/:/g, '');
+        const monthStr = dateStr.substring(0, 7); // YYYY-MM
+        const category = classifyNote(note);
         const safeTitle = safeName(note.title);
-        const baseName = `${timeStr}_${safeTitle}`;
-        const filePath = path.join(getDir, dateStr, `${baseName}.md`);
+        const baseName = `${dateStr}_${category}_${safeTitle}`;
+        const filePath = path.join(baseDir, monthStr, `${baseName}.md`);
 
         if (fs.existsSync(filePath)) {
             onDisk++;

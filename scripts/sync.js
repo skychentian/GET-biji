@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
 /**
- * Get Notes Auto Sync v3
+ * Get Notes Auto Sync v3.1
  *
  * Orchestrator: imports api.js (auth + fetch) and format.js (formatting + chapter injection).
  *
- * Output structure:
- *   get/YYYY-MM-DD/HHMMSS_title.md         ← Summary (short transcripts inlined)
- *   get/YYYY-MM-DD/HHMMSS_title_原文.md     ← Structured transcript with chapter headings (long only)
+ * Output structure (monthly dirs, category in filename):
+ *   Get笔记/YYYY-MM/YYYY-MM-DD_分类_标题.md         ← Summary (short transcripts inlined)
+ *   Get笔记/YYYY-MM/YYYY-MM-DD_分类_标题_原文.md     ← Structured transcript with chapter headings (long only)
  */
 
 const fs = require('fs');
@@ -23,6 +23,7 @@ const {
 
 const {
     safeName,
+    classifyNote,
     parseChapters,
     buildTranscript,
     needsSeparateTranscript,
@@ -45,22 +46,21 @@ const SINCE_DATE = process.env.SINCE_DATE || '2026-01-01'; // Only sync notes fr
 function saveNote(note, originalData, outputDir) {
     const createdDate = note.created_at || '';
     const dateStr = createdDate.split(' ')[0] || 'unknown-date';
-    // Use HHMMSS (6 digits) for better uniqueness
-    const rawTime = createdDate.split(' ')[1] || '00:00:00';
-    const timeStr = rawTime.substring(0, 8).replace(/:/g, '');
+    const monthStr = dateStr.substring(0, 7); // YYYY-MM
+    const category = classifyNote(note);
     const safeTitle = safeName(note.title);
-    let baseName = `${timeStr}_${safeTitle}`;
+    let baseName = `${dateStr}_${category}_${safeTitle}`;
 
-    // Create date directory
-    const dateDir = path.join(outputDir, 'get', dateStr);
-    if (!fs.existsSync(dateDir)) {
-        fs.mkdirSync(dateDir, { recursive: true });
+    // Create monthly directory
+    const monthDir = path.join(outputDir, 'Get笔记', monthStr);
+    if (!fs.existsSync(monthDir)) {
+        fs.mkdirSync(monthDir, { recursive: true });
     }
 
     // Collision detection: if file exists, append counter
-    if (fs.existsSync(path.join(dateDir, `${baseName}.md`))) {
+    if (fs.existsSync(path.join(monthDir, `${baseName}.md`))) {
         let counter = 2;
-        while (fs.existsSync(path.join(dateDir, `${baseName}_${counter}.md`))) {
+        while (fs.existsSync(path.join(monthDir, `${baseName}_${counter}.md`))) {
             counter++;
         }
         baseName = `${baseName}_${counter}`;
@@ -78,18 +78,19 @@ function saveNote(note, originalData, outputDir) {
 
     // Write summary file
     const summaryMd = buildSummaryMarkdown(note, transcript, transcriptFilename);
-    const summaryPath = path.join(dateDir, `${baseName}.md`);
+    const summaryPath = path.join(monthDir, `${baseName}.md`);
     fs.writeFileSync(summaryPath, summaryMd, 'utf8');
 
     // Write transcript file (if separate)
     if (separate && transcript) {
         const summaryFilename = `${baseName}.md`;
         const transcriptMd = buildTranscriptMarkdown(note, transcript, summaryFilename);
-        fs.writeFileSync(path.join(dateDir, transcriptFilename), transcriptMd, 'utf8');
+        fs.writeFileSync(path.join(monthDir, transcriptFilename), transcriptMd, 'utf8');
     }
 
     return {
-        dateStr,
+        monthStr,
+        category,
         summaryFilename: `${baseName}.md`,
         hasTranscript: !!transcript,
         separateTranscript: separate,
@@ -106,7 +107,7 @@ async function main() {
     console.log('========================================\n');
 
     const outputDir = OUTPUT_DIR;
-    const getDir = path.join(outputDir, 'get');
+    const getDir = path.join(outputDir, 'Get笔记');
 
     if (!fs.existsSync(getDir)) {
         fs.mkdirSync(getDir, { recursive: true });
@@ -167,7 +168,7 @@ async function main() {
                 status.push(result.separateTranscript ? '原文(separate)' : '原文(inline)');
                 if (result.separateTranscript) separateCount++;
             }
-            console.log(`  ✅ get/${result.dateStr}/${result.summaryFilename} ${status.join(' ')}`);
+            console.log(`  ✅ Get笔记/${result.monthStr}/${result.summaryFilename} ${status.join(' ')}`);
 
             // Track synced
             syncedIds.add(note.note_id);

@@ -39,6 +39,51 @@ function safeName(title) {
 }
 
 // ============================================================
+// Smart Classification (ported from original sync-get-notes.js)
+// ============================================================
+
+function classifyNote(note) {
+    const noteType = note.note_type || '';
+    const entryType = note.entry_type || '';
+    const content = ((note.content || '') + ' ' + (note.title || '')).toLowerCase();
+
+    const durationMin = getDurationMinutes(note);
+
+    if (noteType === 'recorder_audio' || entryType === 'ai') {
+        if (durationMin > 10) {
+            if (content.includes('客户') || content.includes('交流') || content.includes('需求') || content.includes('报价')) {
+                return '客户';
+            }
+            return '会议';
+        }
+        if (durationMin < 3) {
+            if (content.includes('待办') || content.includes('记得') || content.includes('要做') || content.includes('明天')) {
+                return '待办';
+            }
+            return '灵感';
+        }
+    }
+
+    if (content.includes('工作会议') || content.includes('会议纪要') || content.includes('讨论') || content.includes('培训')) {
+        return '会议';
+    }
+    if (content.includes('客户') || content.includes('报价') || content.includes('需求') || content.includes('合作')) {
+        return '客户';
+    }
+    if (content.includes('复盘') || content.includes('反思') || content.includes('总结')) {
+        return '复盘';
+    }
+    if (content.includes('选题') || content.includes('文章') || content.includes('内容') || content.includes('课程')) {
+        return '选题';
+    }
+    if (content.includes('待办') || content.includes('要做') || content.includes('记得')) {
+        return '待办';
+    }
+
+    return '灵感';
+}
+
+// ============================================================
 // Chapter Parsing (from note.content markdown)
 // ============================================================
 
@@ -260,18 +305,17 @@ function buildSummaryMarkdown(note, transcript, transcriptFilename) {
     const dateStr = createdDate.split(' ')[0] || 'unknown-date';
     const timeStr = (createdDate.split(' ')[1] || '').substring(0, 5);
     const durationMin = getDurationMinutes(note);
-    const content = stripGoldQuotes(note.content);
+    const category = classifyNote(note);
+    const content = note.content || '';
 
     let md = `---\n`;
+    md += `title: "${(note.title || 'Untitled').replace(/"/g, '\\"')}"\n`;
     md += `date: ${dateStr}\n`;
     md += `time: "${timeStr}"\n`;
-    md += `title: "${(note.title || 'Untitled').replace(/"/g, '\\"')}"\n`;
     md += `note_id: ${note.note_id}\n`;
+    md += `category: ${category}\n`;
     if (durationMin > 0) md += `duration_min: ${durationMin}\n`;
     if (transcriptFilename) md += `transcript: "${transcriptFilename}"\n`;
-    md += `场景:\n`;
-    md += `人物: []\n`;
-    md += `话题: []\n`;
     md += `---\n\n`;
 
     if (content) md += `${content}\n\n`;
@@ -324,9 +368,9 @@ function needsSeparateTranscript(transcript) {
 
 module.exports = {
     formatDuration,
-    stripGoldQuotes,
     getDurationMinutes,
     safeName,
+    classifyNote,
     parseChapters,
     buildTranscript,
     buildPlainTranscript,
