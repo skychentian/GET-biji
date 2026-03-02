@@ -24,11 +24,13 @@ cd <skill-dir> && OUTPUT_DIR="<your-output-dir>" node scripts/sync.js
 ## 输出结构
 
 ```
-07 人生上下文/get/
-  YYYY-MM-DD/
-    HHMMSS_标题.md          ← 摘要文件（短录音原文内嵌）
-    HHMMSS_标题_原文.md      ← 原文转录（长录音，>50行时分离）
+Get笔记/
+  YYYY-MM/
+    YYYY-MM-DD_分类_标题.md          ← 摘要文件（短录音原文内嵌）
+    YYYY-MM-DD_分类_标题_原文.md      ← 原文转录（长录音，>50行时分离）
 ```
+
+分类由 `classifyNote()` 智能判断：客户、会议、灵感、待办、复盘、选题。
 
 ## 文件格式
 
@@ -36,18 +38,16 @@ cd <skill-dir> && OUTPUT_DIR="<your-output-dir>" node scripts/sync.js
 
 ```yaml
 ---
+title: "标题"
 date: 2026-02-27
 time: "10:34"
-title: "标题"
 note_id: 1234567890
+category: 客户
 duration_min: 45           # 有录音时才有
-transcript: "HHMMSS_标题_原文.md"  # 长录音才有
-场景:                       # AI 待填充
-人物: []
-话题: []
+transcript: "2026-02-27_客户_标题_原文.md"  # 长录音才有
 ---
 
-（AI 生成的智能总结 + 章节概要）
+（AI 生成的智能总结 + 章节概要 + 金句精选）
 
 ## 附件
 - [audio (45 min)](https://...)
@@ -63,7 +63,7 @@ transcript: "HHMMSS_标题_原文.md"  # 长录音才有
 date: 2026-02-27
 note_id: 1234567890
 title: "标题"
-summary: "HHMMSS_标题.md"   # 互相引用
+summary: "2026-02-27_客户_标题.md"   # 互相引用
 ---
 
 ## [03:25] 章节标题          ← 章节标题自动注入
