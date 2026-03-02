@@ -1,51 +1,82 @@
 ---
-name: Get Notes Auto Sync
-description: A skill to automatically sync, transcribe, and organize notes from Get Notes (biji.com) to a local Markdown knowledge base.
+name: get-biji
+description: 从 Get 笔记 (biji.com) 同步语音笔记到本地 Markdown
 ---
 
-# Get Notes Auto Sync
+# Get 笔记同步
 
-This skill allows you to automatically sync voice notes from the Get Notes (biji.com) platform to your local machine. It handles authentication, continuous syncing, and organization of notes into categories.
+24/7 录音卡 → Get Notes (biji.com) AI 转录 → 本地 Markdown。
 
-## Features
+## 同步命令
 
-- **Automated Sync**: Fetches notes from Get Notes API with cursor-based pagination.
-- **Full Transcription**: Retrieves both the AI summary and the full original transcript.
-- **Smart Classification**: Automatically categorizes notes into Meetings, Clients, Inspiration, or Todos based on content and duration.
-- **Deduplication**: Ensures no duplicate notes are saved using `note_id`.
-- **Dashboard**: Provides a local web dashboard to monitor sync status and manage login.
-
-## Usage
-
-### Prerequisites
-- Node.js (v18+)
-- Playwright (`npx playwright install chromium`)
-
-### 1. Setup
-Run `npm install` in the skill directory to install dependencies.
-
-### 2. Configure
-The scripts use default relative paths. You can modify `config.js` (if extracted) or pass environment variables.
-By default, notes are saved to a `./notes` directory.
-
-### 3. Run Sync
 ```bash
-node scripts/sync.js
+cd <skill-dir> && OUTPUT_DIR="<your-output-dir>" node scripts/sync.js
 ```
-On first run, a browser window will open for you to log in to `biji.com`.
 
-### 4. Run Dashboard
-```bash
-node scripts/dashboard.js
+认证链：缓存 JWT（30min）→ refresh_token 静默刷新（~90天）→ Playwright 浏览器登录（最后手段）。
+首次运行需弹出浏览器登录 biji.com，之后约 90 天内无需再开浏览器。
+
+环境变量：
+- `OUTPUT_DIR` — 输出目录（默认 `./notes`）
+- `SINCE_DATE` — 起始日期过滤（默认 `2026-01-01`）
+- `TEST_LIMIT` — 测试模式，限制同步条数（默认 `0` = 全部）
+
+## 输出结构
+
 ```
-Opens a web interface at `http://localhost:3456`.
+07 人生上下文/get/
+  YYYY-MM-DD/
+    HHMMSS_标题.md          ← 摘要文件（短录音原文内嵌）
+    HHMMSS_标题_原文.md      ← 原文转录（长录音，>50行时分离）
+```
 
-## Scripts
+## 文件格式
 
-- `scripts/sync.js`: Main synchronization logic.
-- `scripts/dashboard.js`: Web-based control panel.
-- `scripts/dedupe.js`: Utility to clean up duplicate files.
+### 摘要文件（主文件）
 
-## Automation
+```yaml
+---
+date: 2026-02-27
+time: "10:34"
+title: "标题"
+note_id: 1234567890
+duration_min: 45           # 有录音时才有
+transcript: "HHMMSS_标题_原文.md"  # 长录音才有
+场景:                       # AI 待填充
+人物: []
+话题: []
+---
 
-To run this daily, you can use the provided `com.sky.getnotes.sync.plist` template for macOS `launchd`.
+（AI 生成的智能总结 + 章节概要）
+
+## 附件
+- [audio (45 min)](https://...)
+
+## 原文              ← 短录音时内嵌
+[00:00] [Speaker 1] ...
+```
+
+### 原文文件（长录音）
+
+```yaml
+---
+date: 2026-02-27
+note_id: 1234567890
+title: "标题"
+summary: "HHMMSS_标题.md"   # 互相引用
+---
+
+## [03:25] 章节标题          ← 章节标题自动注入
+[03:25] [Speaker 1] 正文...
+```
+
+## 辅助脚本
+
+- `rebuild-state.js` — 从 API 重建同步状态（丢失 `.sync-state.json` 时用）
+- `dedupe.js` — 去重工具
+
+## 状态文件
+
+- `.sync-state.json` — 已同步的 note_id 列表（增量同步依赖）
+- `.token-cache.json` — JWT + refresh_token 缓存
+- `.auth-state.json` — Playwright 浏览器登录状态
